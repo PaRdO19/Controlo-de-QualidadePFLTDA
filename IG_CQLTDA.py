@@ -153,7 +153,7 @@ class MainWindow(QMainWindow):
             temp_value = float(parsed_data["Temp"])
             self.temp_plot.update_plot(temp_value)
             if temp_value > 35:
-                alert_message = "ALERTA: Temperatura acima de 35°C!"
+                alert_message = "ALERTA: Temperatura acima de 45°C!"
                 self.temp_plot.show_warning(alert_message)
                 self.log_alert(alert_message)
             else:
