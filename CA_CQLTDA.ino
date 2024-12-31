@@ -1,6 +1,6 @@
 #define SECRET_KEY "CQLTDA"
 
-// Motor A connections
+// Motor A
 int in1 = 9;
 int in2 = 10;
 
@@ -13,7 +13,7 @@ int motorStep = 0; // Controla a etapa atual do motor
 
 // Função para calcular a temperatura em Celsius a partir do valor analógico do sensor
 float readTemperatureCelsius(int adcValue) {
-  // Convert ADC value to temperature in Celsius for LM35 sensor
+  // Converter valores de temperature para Celsius
   return (adcValue * 5.0 / 1024.0) / 0.01; // 10mV por °C
 }
 
@@ -29,11 +29,10 @@ void sendEncryptedMessage(String message) {
 
 void setup() {
   Serial.begin(9600);
-  // Set all the motor control pins to outputs
   pinMode(in1, OUTPUT);
   pinMode(in2, OUTPUT);
 
-  // Turn off motors - Initial state
+  // Desligar motores - estado inicial
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
 }
@@ -66,21 +65,21 @@ void updateMotor() {
 
     switch (motorStep) {
       case 0:
-        // Turn on motor A & B in one direction
+        // Ligar o motor para uma das direçoes
         digitalWrite(in1, HIGH);
         digitalWrite(in2, LOW);
         motorStep++;
         break;
 
       case 1:
-        // Change motor direction
+        // Mudar a direção do motor
         digitalWrite(in1, LOW);
         digitalWrite(in2, HIGH);
         motorStep++;
         break;
 
       case 2:
-        // Turn off motors
+        // Desligar o motor
         digitalWrite(in1, LOW);
         digitalWrite(in2, LOW);
         motorStep = 0; // Reinicia o ciclo
@@ -92,7 +91,6 @@ void updateMotor() {
 void loop() {
   unsigned long currentTime = millis();
 
-  // Verifica se é hora de ler os sensores
   if (currentTime - previousSensorTime >= sensorInterval) {
     previousSensorTime = currentTime;
     readSensors();
