@@ -4,9 +4,13 @@ from PyQt5.QtCore import QThread, pyqtSignal, QDateTime
 import serial
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 from collections import deque
-
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from sklearn.preprocessing import MinMaxScaler
 
 SECRET_KEY = "CQLTDA"
 
@@ -75,6 +79,26 @@ class PlotWidget(QWidget):
     def show_warning(self, message):
         self.warning_label.setText(message)
 
+class AnomalyDetector:
+    def __init__(self):
+        self.model = Sequential([
+            Dense(32, input_dim=1, activation='relu'),
+            Dense(32, activation='relu'),
+            Dense(1, activation='sigmoid')
+        ])
+        self.model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+        self.scaler = MinMaxScaler()
+
+    def train(self, data, labels):
+        scaled_data = self.scaler.fit_transform(data.reshape(-1, 1))
+        self.model.fit(scaled_data, labels, epochs=20, batch_size=8, verbose=0)
+
+    def predict(self, value):
+        scaled_value = self.scaler.transform(np.array([[value]]))
+        prediction = self.model.predict(scaled_value, verbose=0)[0][0]
+        print(f"Valor recebido (original): {value}, Valor escalado: {scaled_value[0][0]}, Predição: {prediction}")  # Log para debug
+        return prediction > 0.3  # Reduzido o limiar para aumentar sensibilidade
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -113,13 +137,34 @@ class MainWindow(QMainWindow):
 
         self.show_main_menu()
 
-        self.serial_thread = SerialReaderThread("/dev/cu.usbmodem114101", 9600)  # Update with the correct port
+        self.serial_thread = SerialReaderThread("/dev/cu.usbmodem14101", 9600)  # Update with the correct port
         self.serial_thread.new_message.connect(self.process_message)
         self.serial_thread.start()
 
         self.current_filter = None
 
+        # Inicializar detectores de anomalia
+        self.vib_detector = AnomalyDetector()
+        self.temp_detector = AnomalyDetector()
+        self.mic_detector = AnomalyDetector()
+
         self.alert_log = []
+
+        # Simular dados para treinamento inicial
+        self.train_detectors()
+
+    def train_detectors(self):
+        vib_data = np.concatenate([np.random.normal(500, 100, 900), np.random.normal(950, 50, 100)])
+        vib_labels = (vib_data > 900).astype(int)
+        self.vib_detector.train(vib_data, vib_labels)
+
+        temp_data = np.concatenate([np.random.normal(25, 5, 900), np.random.normal(40, 5, 100)])
+        temp_labels = (temp_data > 35).astype(int)
+        self.temp_detector.train(temp_data, temp_labels)
+
+        mic_data = np.concatenate([np.random.normal(75, 20, 900), np.random.normal(160, 10, 100)])
+        mic_labels = (mic_data > 150).astype(int)
+        self.mic_detector.train(mic_data, mic_labels)
 
     def show_main_menu(self):
         self.stacked_widget.setCurrentWidget(self.main_menu)
@@ -143,8 +188,8 @@ class MainWindow(QMainWindow):
         if "Vib" in parsed_data and self.current_filter == "Vib":
             vib_value = int(parsed_data["Vib"])
             self.vib_plot.update_plot(vib_value)
-            if vib_value > 900:
-                alert_message = "ALERTA: Vibração acima de 900!"
+            if self.vib_detector.predict(vib_value):
+                alert_message = "ALERTA: Anomalia detectada na vibração!"
                 self.vib_plot.show_warning(alert_message)
                 self.log_alert(alert_message)
             else:
@@ -152,8 +197,8 @@ class MainWindow(QMainWindow):
         elif "Temp" in parsed_data and self.current_filter == "Temp":
             temp_value = float(parsed_data["Temp"])
             self.temp_plot.update_plot(temp_value)
-            if temp_value > 35:
-                alert_message = "ALERTA: Temperatura acima de 50°C!"
+            if self.temp_detector.predict(temp_value):
+                alert_message = "ALERTA: Anomalia detectada na temperatura!"
                 self.temp_plot.show_warning(alert_message)
                 self.log_alert(alert_message)
             else:
@@ -161,8 +206,8 @@ class MainWindow(QMainWindow):
         elif "Mic" in parsed_data and self.current_filter == "Mic":
             mic_value = float(parsed_data["Mic"])
             self.mic_plot.update_plot(mic_value)
-            if mic_value > 150:
-                alert_message = "ALERTA: Ruído acima de 150!"
+            if self.mic_detector.predict(mic_value):
+                alert_message = "ALERTA: Anomalia detectada no ruído!"
                 self.mic_plot.show_warning(alert_message)
                 self.log_alert(alert_message)
             else:
