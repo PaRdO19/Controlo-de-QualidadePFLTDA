@@ -1,24 +1,22 @@
 #define SECRET_KEY "CQLTDA"
 
-// Motor A
 int in1 = 9;
 int in2 = 10;
 
-unsigned long previousSensorTime = 0; // Armazena o tempo da última leitura dos sensores
-const unsigned long sensorInterval = 500; // Intervalo para leitura dos sensores em milissegundos
+unsigned long previousSensorTime = 0;
+const unsigned long sensorInterval = 500;
 
-unsigned long previousMotorTime = 0; // Armazena o tempo da última atualização dos motores
-unsigned long motorStepInterval = 2000; // Intervalo entre cada etapa do motor em milissegundos
-int motorStep = 0; // Controla a etapa atual do motor
+unsigned long previousMotorTime = 0;
+unsigned long motorStepInterval = 2000;
+int motorStep = 0;
 
-bool motorActive = true; // Estado do motor (ativo ou parado)
+bool motorActive = true;
 
-// Função para calcular a temperatura em Celsius a partir do valor analógico do sensor
+
 float readTemperatureCelsius(int adcValue) {
-  return (adcValue * 5.0 / 1024.0) / 0.01; // 10mV por °C
+  return (adcValue * 5.0 / 1024.0) / 0.01;
 }
 
-// Função para enviar mensagens criptografadas
 void sendEncryptedMessage(String message) {
   String encrypted = "";
   int keyLength = String(SECRET_KEY).length();
@@ -33,16 +31,14 @@ void setup() {
   pinMode(in1, OUTPUT);
   pinMode(in2, OUTPUT);
 
-  // Desligar motores - estado inicial
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
 }
 
-// Função para ler os sensores e exibir os valores
 void readSensors() {
-  int sensorVib = analogRead(A0); // Sensor de vibração
-  int sensorTemp = analogRead(A1); // Sensor de temperatura
-  int Mic = analogRead(A2); // Microfone
+  int sensorVib = analogRead(A0);
+  int sensorTemp = analogRead(A1);
+  int Mic = analogRead(A2);
 
   float temperatureCelsius = readTemperatureCelsius(sensorTemp);
 
@@ -53,10 +49,8 @@ void readSensors() {
   sendEncryptedMessage(message);
 }
 
-// Função para atualizar o estado do motor
 void updateMotor() {
   if (!motorActive) {
-    // Desligar o motor se inativo
     digitalWrite(in1, LOW);
     digitalWrite(in2, LOW);
     return;
@@ -88,11 +82,10 @@ void updateMotor() {
   }
 }
 
-// Processa comandos recebidos via Serial
 void processSerialCommand() {
   if (Serial.available()) {
     String command = Serial.readStringUntil('\n');
-    command.trim(); // Remove espaços e quebras de linha extras
+    command.trim();
 
     if (command == "STOP_MOTOR") {
       motorActive = false;
