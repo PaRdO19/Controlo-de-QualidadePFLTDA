@@ -47,6 +47,10 @@ class SerialReaderThread(QThread):
         self.running = False
         self.serial_port.close()
 
+    def send_command(self, command):
+        if self.serial_port.is_open:
+            self.serial_port.write((command + '\n').encode('utf-8'))
+
 class PlotWidget(QWidget):
     def __init__(self, title, ylabel, max_points=100):
         super().__init__()
@@ -91,13 +95,13 @@ class AnomalyDetector:
 
     def train(self, data, labels):
         scaled_data = self.scaler.fit_transform(data.reshape(-1, 1))
-        self.model.fit(scaled_data, labels, epochs=20, batch_size=8, verbose=0)
+        self.model.fit(scaled_data, labels, epochs=50, batch_size=8, verbose=0)
 
     def predict(self, value):
         scaled_value = self.scaler.transform(np.array([[value]]))
         prediction = self.model.predict(scaled_value, verbose=0)[0][0]
-        print(f"Valor recebido (original): {value}, Valor escalado: {scaled_value[0][0]}, Predição: {prediction}")  # Log para debug
-        return prediction > 0.3  # Reduzido o limiar para aumentar sensibilidade
+        print(f"Valor recebido (original): {value}, Valor ajustado a escala: {scaled_value[0][0]}, Previsão: {prediction}") 
+        return prediction > 0.3  
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -112,14 +116,20 @@ class MainWindow(QMainWindow):
         self.vibration_button = QPushButton("Vibração")
         self.temperature_button = QPushButton("Temperatura")
         self.microphone_button = QPushButton("Ruído")
+        self.stop_motor_button = QPushButton("Parar Motor")
+        self.start_motor_button = QPushButton("Iniciar Motor")
 
         self.vibration_button.clicked.connect(lambda: self.show_data_page("Vib"))
         self.temperature_button.clicked.connect(lambda: self.show_data_page("Temp"))
         self.microphone_button.clicked.connect(lambda: self.show_data_page("Mic"))
+        self.stop_motor_button.clicked.connect(self.stop_motor)
+        self.start_motor_button.clicked.connect(self.start_motor)
 
         main_menu_layout.addWidget(self.vibration_button)
         main_menu_layout.addWidget(self.temperature_button)
         main_menu_layout.addWidget(self.microphone_button)
+        main_menu_layout.addWidget(self.stop_motor_button)
+        main_menu_layout.addWidget(self.start_motor_button)
         self.main_menu.setLayout(main_menu_layout)
 
         self.vib_plot = PlotWidget("Vibração", "Valor do sensor")
@@ -143,14 +153,12 @@ class MainWindow(QMainWindow):
 
         self.current_filter = None
 
-        # Inicializar detectores de anomalia
         self.vib_detector = AnomalyDetector()
         self.temp_detector = AnomalyDetector()
         self.mic_detector = AnomalyDetector()
 
         self.alert_log = []
 
-        # Simular dados para treinamento inicial
         self.train_detectors()
 
     def train_detectors(self):
@@ -178,9 +186,11 @@ class MainWindow(QMainWindow):
         elif filter_type == "Mic":
             self.stacked_widget.setCurrentWidget(self.mic_plot)
 
-    def log_alert(self, message):
-        timestamp = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
-        self.alert_log.append(f"[{timestamp}] {message}")
+    def stop_motor(self):
+        self.serial_thread.send_command("STOP_MOTOR")
+
+    def start_motor(self):
+        self.serial_thread.send_command("START_MOTOR")
 
     def process_message(self, message):
         parsed_data = parse_message(message)
@@ -212,6 +222,10 @@ class MainWindow(QMainWindow):
                 self.log_alert(alert_message)
             else:
                 self.mic_plot.show_warning("")
+
+    def log_alert(self, message):
+        timestamp = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
+        self.alert_log.append(f"[{timestamp}] {message}")
 
     def closeEvent(self, event):
         self.serial_thread.stop()
