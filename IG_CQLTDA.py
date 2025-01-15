@@ -11,6 +11,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.callbacks import EarlyStopping
 
 SECRET_KEY = "CQLTDA"
 
@@ -93,9 +94,10 @@ class AnomalyDetector:
         self.model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
         self.scaler = MinMaxScaler()
 
-    def train(self, data, labels):
+    def train(self, data, labels, batch_size=32, epochs=20):
         scaled_data = self.scaler.fit_transform(data.reshape(-1, 1))
-        self.model.fit(scaled_data, labels, epochs=50, batch_size=8, verbose=0)
+        callbacks = [EarlyStopping(monitor='loss', patience=5)]
+        self.model.fit(scaled_data, labels, batch_size=batch_size, epochs=epochs, verbose=1, callbacks=callbacks)
 
     def predict(self, value):
         scaled_value = self.scaler.transform(np.array([[value]]))
